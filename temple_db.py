@@ -14,6 +14,7 @@ def hash_password(password: str, salt: bytes = None, iterations: int = 100_000):
         salt = os.urandom(16)
     pwd_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
     return binascii.hexlify(salt).decode(), binascii.hexlify(pwd_hash).decode()
+# verifing password
 
 def verify_password(stored_salt_hex: str, stored_hash_hex: str, provided_password: str, iterations: int = 100_000):
     salt = binascii.unhexlify(stored_salt_hex.encode())
