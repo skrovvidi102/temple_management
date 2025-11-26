@@ -184,17 +184,10 @@ def generate_festival_calendar_pdf(festivals, year, month):
                 # draw cell text
                 # first line bigger for day
                 pdf.multi_cell(cell_w, 6, "\n".join(lines), border=1, align="L")
-                # Because multi_cell moves cursor to next line, we need to reposition for next column
-                # Set X to current x + ??? (we'll compute relative)
-                # Simplest approach: move cursor to right of the cell we just printed
+                
                 x_right = pdf.get_x()
                 y_current = pdf.get_y()
-                # reposition for next cell start: set x to left margin + next column index * cell_w
-                # But implementing accurate repositioning is complex after multi_cell. Use a workaround:
-                # Save x0 and y0 before multi_cell and after it, set y back to y0 and set x to x0+cell_w
-                # We'll implement with a manual approach below (redo per cell)
-        # After building row we manually draw cells row-by-row to avoid multi_cell reposition issues.
-        # (To keep code simple and robust we will draw rows using a different technique below.)
+                
         pass
 
     # Simpler robust implementation: draw the grid row-by-row using cell and then write content in each cell using text positioning.

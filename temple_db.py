@@ -341,10 +341,8 @@ def get_stage_bookings(stage_id=None, date_str=None):
     return rows
 
 def book_stage(stage_id, employee_id, event_name, booking_date, start_time, end_time, status='confirmed'):
-    # optional simple availability check: ensure no confirmed bookings overlap
     conn = get_connection()
     cur = conn.cursor()
-    # check overlap on same date for that stage
     cur.execute("""
         SELECT 1 FROM StageBookings
         WHERE StageID=? AND BookingDate=? AND Status IN ('confirmed','approved')

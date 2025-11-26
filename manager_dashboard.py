@@ -20,7 +20,7 @@ from tkinter import filedialog
 
 
 
-# small helper to create a "card button"
+
 def make_card(parent, icon, title, subtitle, command, bg="#ffffff"):
     card = tk.Frame(parent, bg=bg, bd=1, relief="raised", padx=12, pady=12)
     card.grid_propagate(False)
@@ -36,7 +36,6 @@ def make_card(parent, icon, title, subtitle, command, bg="#ffffff"):
     return card
 
 def manager_dashboard(root, username):
-    # clear previous widgets
     for w in root.winfo_children(): w.destroy()
 
     root.title("Temple Management System - Manager")
@@ -66,7 +65,7 @@ def manager_dashboard(root, username):
     # --------------- features as cards ---------------
     # Manage Worship Types
     def manage_worship():
-        # reuse your existing modal from prior code (kept concise)
+        
         win = tk.Toplevel(root)
         win.title("Manage Worship Types"); win.geometry("480x420"); win.configure(bg="#f5f5f5")
         tree = ttk.Treeview(win, columns=("ID", "Name", "Rate"), show="headings")
@@ -283,7 +282,7 @@ def manager_dashboard(root, username):
         from db_ui import LoginUI
         LoginUI(root)
 
-    # place cards in grid (3 columns)
+
     cards = [
         ("🛕", "Manage Worship", "Add/update worship types", manage_worship),
         ("👥", "Manage Employees", "Add/delete employee accounts", manage_employees),

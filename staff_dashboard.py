@@ -24,7 +24,6 @@ def make_card(parent, icon, title, subtitle, command, bg="#ffffff"):
     return card
 
 def staff_dashboard(root, username):
-    # clear previous widgets
     for w in root.winfo_children(): w.destroy()
 
     root.title("Temple Management System - Staff")
