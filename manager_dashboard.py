@@ -1,5 +1,3 @@
-# manager_dashboard.py
-# manager_dashboard.py
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 from temple_db import (
@@ -17,6 +15,41 @@ from datetime import datetime
 from collections import defaultdict
 import csv
 from tkinter import filedialog
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.dates as mdates
+
+class ScrollableFrame(ttk.Frame):
+    def __init__(self, container, *args, **kwargs):
+        super().__init__(container, *args, **kwargs)
+
+        canvas = tk.Canvas(self, bg="#f0f8ff", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+
+        self.scrollable_frame = ttk.Frame(canvas)
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Mouse wheel scrolling
+        self.scrollable_frame.bind("<Enter>", lambda e: self._bind_mousewheel(canvas))
+        self.scrollable_frame.bind("<Leave>", lambda e: self._unbind_mousewheel(canvas))
+
+    def _bind_mousewheel(self, canvas):
+        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(-1*(e.delta//120), "units"))
+
+    def _unbind_mousewheel(self, canvas):
+        canvas.unbind_all("<MouseWheel>")
+
+# manager_dashboard.py
+# manager_dashboard.py
+
 
 
 
@@ -54,8 +87,11 @@ def manager_dashboard(root, username):
     exit_btn.pack(side="right", padx=12)
 
     # Grid container
-    grid_frame = tk.Frame(root, bg="#f0f8ff")
-    grid_frame.pack(fill="both", expand=True, padx=20, pady=8)
+    scroll_area = ScrollableFrame(root)
+    scroll_area.pack(fill="both", expand=True, padx=20, pady=8)
+
+    grid_frame = tk.Frame(scroll_area.scrollable_frame, bg="#f0f8ff")
+    grid_frame.pack(fill="both", expand=True)
 
     # grid: 3 columns
     cols = 3
@@ -275,6 +311,362 @@ def manager_dashboard(root, username):
     def export_donations():
         data = get_all_donations()
         export_to_csv(data, ["Employee","Donor","Date","DonationType","Amount","DonationID"], "donations.csv")
+        
+    
+
+    def open_analytics_window():
+        win = tk.Toplevel(root)
+        win.title("Analytics & Reports")
+        try:
+            win.state('zoomed')
+        except:
+            win.geometry("1000x700")
+        win.configure(bg="#f5f5f5")
+
+        # Top: filters frame
+        filt_frame = tk.Frame(win, bg="#f5f5f5", pady=8)
+        filt_frame.pack(fill="x", padx=12)
+
+        # Year dropdown (last 5 years)
+        current_year = datetime.now().year
+        years = [str(y) for y in range(current_year-4, current_year+1)]
+        tk.Label(filt_frame, text="Year:", bg="#f5f5f5").pack(side="left", padx=(4,2))
+        year_var = tk.StringVar(value=str(current_year))
+        year_cb = ttk.Combobox(filt_frame, values=years, textvariable=year_var, width=8, state="readonly")
+        year_cb.pack(side="left", padx=6)
+
+        # Month dropdown (All + 1..12)
+        months = ["All"] + [datetime(2000, m, 1).strftime("%B") for m in range(1,13)]
+        tk.Label(filt_frame, text="Month:", bg="#f5f5f5").pack(side="left", padx=(12,2))
+        month_var = tk.StringVar(value="All")
+        month_cb = ttk.Combobox(filt_frame, values=months, textvariable=month_var, width=12, state="readonly")
+        month_cb.pack(side="left", padx=6)
+
+        # Metric selector
+        metrics = ["Monthly Budget", "Tickets", "Staff Activity", "Bookings"]
+        tk.Label(filt_frame, text="Metric:", bg="#f5f5f5").pack(side="left", padx=(12,2))
+        metric_var = tk.StringVar(value=metrics[0])
+        metric_cb = ttk.Combobox(filt_frame, values=metrics, textvariable=metric_var, width=18, state="readonly")
+        metric_cb.pack(side="left", padx=6)
+
+        # Buttons: Generate, Export CSV, Export PDF, Close
+        btn_frame = tk.Frame(filt_frame, bg="#f5f5f5")
+        btn_frame.pack(side="right")
+        generate_btn = tk.Button(btn_frame, text="Generate", bg="#1976d2", fg="white", width=12)
+        generate_btn.grid(row=0, column=0, padx=6)
+        export_csv_btn = tk.Button(btn_frame, text="Export CSV", bg="#4caf50", fg="white", width=12)
+        export_csv_btn.grid(row=0, column=1, padx=6)
+        export_pdf_btn = tk.Button(btn_frame, text="Export PDF", bg="#6a1b9a", fg="white", width=12)
+        export_pdf_btn.grid(row=0, column=2, padx=6)
+        tk.Button(btn_frame, text="Close", command=win.destroy, bg="#ef5350", fg="white", width=10).grid(row=0, column=3, padx=6)
+
+        # Middle: charts area (two plots stacked)
+        chart_frame = tk.Frame(win, bg="#f5f5f5")
+        chart_frame.pack(fill="both", expand=True, padx=12, pady=8)
+
+        # Use matplotlib FigureCanvas if user has it; otherwise we'll rely on plt.show() as fallback.
+        # We'll draw figures and embed them with TkAgg canvas if available.
+        try:
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+            has_tkagg = True
+        except Exception:
+            has_tkagg = False
+
+        fig_main = plt.Figure(figsize=(9,4))
+        ax_bar = fig_main.add_subplot(121)
+        ax_line = fig_main.add_subplot(122)
+
+        canvas_widget = None
+        if has_tkagg:
+            canvas = FigureCanvasTkAgg(fig_main, master=chart_frame)
+            canvas_widget = canvas.get_tk_widget()
+            canvas_widget.pack(fill="both", expand=True)
+        else:
+            # simple placeholder frame for non-TkAgg env; charts will pop as windows when generated
+            placeholder = tk.Label(chart_frame, text="Charts will open in external windows (tkagg not available).", bg="#f5f5f5")
+            placeholder.pack(fill="both", expand=True)
+
+        # Data store for export
+        last_table_rows = []
+        last_table_headers = []
+
+        def compute_month_key(date_str):
+            # expects YYYY-MM-DD, returns YYYY-MM
+            try:
+                return datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m")
+            except:
+                return date_str
+
+        def aggregate_by_month_year(rows, date_index, value_index):
+            """
+            rows: iterable of DB rows
+            date_index: position of date string in row
+            value_index: position of numeric value to sum (or None for count)
+            returns dict key->value where key is "YYYY-MM"
+            """
+            agg = defaultdict(float)
+            for r in rows:
+                dstr = r[date_index]
+                key = compute_month_key(dstr)
+                if value_index is None:
+                    agg[key] += 1
+                else:
+                    try:
+                        agg[key] += float(r[value_index] or 0)
+                    except:
+                        agg[key] += 0
+            return agg
+
+        def build_time_series_from_agg(agg, selected_year, selected_month):
+            """
+            Returns (x_labels, y_vals) filtered by year (month ignored if selected_month='All').
+            Always include all 12 months for line graph.
+            """
+            if selected_month != "All":
+                # Use existing filtering for a single month
+                items = sorted(agg.items())
+                labels = []
+                vals = []
+                for k, v in items:
+                    y, m = k.split("-")
+                    if str(y) != str(selected_year):
+                        continue
+                    mon_num = datetime.strptime(selected_month, "%B").month
+                    if int(m) != mon_num:
+                        continue
+                    labels.append(k)
+                    vals.append(v)
+                return labels, vals
+            else:
+                # All months: 1..12
+                labels = []
+                vals = []
+                for m in range(1, 13):
+                    key = f"{selected_year}-{m:02d}"
+                    labels.append(key)
+                    vals.append(agg.get(key, 0))  # 0 if no data for month
+                return labels, vals
+        
+        def generate_report():
+            nonlocal last_table_rows, last_table_headers
+            sel_year = year_var.get()
+            sel_month = month_var.get()
+            metric = metric_var.get()
+
+            # Reset plots
+            ax_bar.clear()
+            ax_line.clear()
+            last_table_rows = []
+            last_table_headers = []
+
+            if metric == "Monthly Budget":
+                # Treat donations as budget/income
+                donations = get_all_donations()  # (EmployeeName, DonorName, DonationDate, DonationType, Amount, DonationsID)
+                # aggregate by date index 2, value index 4
+                agg = aggregate_by_month_year(donations, 2, 4)
+                labels, vals = build_time_series_from_agg(agg, sel_year, sel_month)
+                last_table_headers = ["Month", "DonationsTotal"]
+                last_table_rows = list(zip(labels, [f"{v:.2f}" for v in vals]))
+
+                if not labels:
+                    messagebox.showinfo("Info", "No data for selected filters."); return
+
+                # bar and line
+                ax_bar.bar(labels, vals)
+                ax_bar.set_title("Monthly Donations (Budget)")
+                ax_bar.set_xticklabels(labels, rotation=45, ha="right")
+                ax_bar.set_ylabel("Amount")
+
+                ax_line.plot(labels, vals, marker="o")
+                ax_line.set_title("Trend")
+                ax_line.set_xticklabels(labels, rotation=45, ha="right")
+
+            elif metric == "Tickets":
+                # Use issued tickets -> date index 2, amount index 4
+                # We'll pull tickets for all employees
+                agg = defaultdict(float)
+                for emp in get_all_employees():
+                    emp_id = emp[0]
+                    tickets = get_issued_tickets_by_employee(emp_id)  # expected (tid, worship, date, num, amt)
+                    for t in tickets:
+                        try:
+                            dstr = t[2]
+                            amt = float(t[4] or 0)
+                            key = compute_month_key(dstr)
+                            agg[key] += amt
+                        except:
+                            continue
+                labels, vals = build_time_series_from_agg(agg, sel_year, sel_month)
+                last_table_headers = ["Month", "TicketRevenue"]
+                last_table_rows = list(zip(labels, [f"{v:.2f}" for v in vals]))
+
+                if not labels:
+                    messagebox.showinfo("Info", "No ticket data for selected filters."); return
+
+                ax_bar.bar(labels, vals)
+                ax_bar.set_title("Monthly Ticket Revenue")
+                ax_bar.set_xticklabels(labels, rotation=45, ha="right")
+                ax_bar.set_ylabel("Revenue")
+
+                ax_line.plot(labels, vals, marker="o")
+                ax_line.set_title("Ticket Revenue Trend")
+                ax_line.set_xticklabels(labels, rotation=45, ha="right")
+
+            # Get all employees
+            elif metric == "Staff Activity":
+                all_emps = get_all_employees()  # [(id, name, ...)]
+                staff_counts = {emp[1]: 0 for emp in all_emps}  # initialize 0 for everyone
+
+                for emp in all_emps:
+                    emp_id, emp_name = emp[0], emp[1]
+                    tickets = get_issued_tickets_by_employee(emp_id)
+                    for t in tickets:
+                        try:
+                            dstr = t[2]
+                            if sel_year and dstr[:4] != sel_year:
+                                continue
+                            if sel_month != "All":
+                                mon_num = datetime.strptime(sel_month, "%B").month
+                                if int(dstr[5:7]) != mon_num:
+                                    continue
+                            staff_counts[emp_name] += int(t[3] or 1)
+                        except:
+                            continue
+
+                # Now staff_counts has all staff, 0 if no activity
+                items = sorted(staff_counts.items(), key=lambda x: x[0])  # sort alphabetically
+                last_table_headers = ["Staff", "TicketsIssued"]
+                last_table_rows = [(k, str(v)) for k, v in items]
+
+                # Plot
+                names = [it[0] for it in items]
+                counts = [it[1] for it in items]
+                ax_bar.clear()
+                ax_line.clear()
+                ax_bar.bar(names, counts)
+                ax_bar.set_title("Staff Tickets Issued")
+                ax_bar.set_xticklabels(names, rotation=45, ha="right")
+                ax_bar.set_ylabel("Tickets Issued")
+
+                ax_line.plot(names, counts, marker="o")
+                ax_line.set_title("Staff Activity Trend")
+                ax_line.set_xticklabels(names, rotation=45, ha="right")
+
+                if not items:
+                    messagebox.showinfo("Info", "No staff activity for selected filters."); return
+
+                names = [it[0] for it in items]
+                counts = [it[1] for it in items]
+                ax_bar.bar(names, counts)
+                ax_bar.set_title("Staff Tickets Issued")
+                ax_bar.set_xticklabels(names, rotation=45, ha="right")
+                ax_bar.set_ylabel("Tickets Issued")
+
+                ax_line.plot(names, counts, marker="o")
+                ax_line.set_title("Staff Activity Trend")
+                ax_line.set_xticklabels(names, rotation=45, ha="right")
+
+            elif metric == "Bookings":
+                # Monthly count of stage bookings
+                bookings = get_stage_bookings()
+                # bookings expected: (bookingid, stageid, empid, eventname, bookingdate, start, end, status)
+                agg = defaultdict(int)
+                for b in bookings:
+                    try:
+                        dstr = b[4]
+                        key = compute_month_key(dstr)
+                        agg[key] += 1
+                    except:
+                        continue
+                labels, vals = build_time_series_from_agg(agg, sel_year, sel_month)
+                last_table_headers = ["Month", "BookingsCount"]
+                last_table_rows = list(zip(labels, [str(v) for v in vals]))
+
+                if not labels:
+                    messagebox.showinfo("Info", "No bookings for selected filters."); return
+
+                ax_bar.bar(labels, vals)
+                ax_bar.set_title("Monthly Stage Bookings")
+                ax_bar.set_xticklabels(labels, rotation=45, ha="right")
+                ax_bar.set_ylabel("Bookings")
+
+                ax_line.plot(labels, vals, marker="o")
+                ax_line.set_title("Booking Trend")
+                ax_line.set_xticklabels(labels, rotation=45, ha="right")
+
+            else:
+                messagebox.showerror("Error", "Unknown metric"); return
+
+            fig_main.tight_layout()
+            if has_tkagg:
+                canvas.draw()
+            else:
+                plt.show()
+
+        def export_csv():
+            nonlocal last_table_rows, last_table_headers
+            if not last_table_rows:
+                messagebox.showinfo("Info", "No data to export. Generate report first.")
+                return
+            p = filedialog.asksaveasfilename(defaultextension=".csv", initialfile="analytics_export.csv",
+                                            filetypes=[("CSV files", "*.csv")])
+            if not p:
+                return
+            with open(p, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(last_table_headers)
+                writer.writerows(last_table_rows)
+            messagebox.showinfo("Exported", f"CSV saved to {p}")
+
+        def export_pdf():
+            # Save the two current axes to a single PDF (if charts exist)
+            # If nothing generated yet, force generation first
+            if not any([len(ax_bar.lines) or len(ax_bar.patches) or len(ax_line.lines) or len(ax_line.patches)]):
+                # attempt generate
+                generate_report()
+            p = filedialog.asksaveasfilename(defaultextension=".pdf", initialfile="analytics_report.pdf",
+                                            filetypes=[("PDF files", "*.pdf")])
+            if not p:
+                return
+            # Create a PDF with current matplotlib figure
+            try:
+                with PdfPages(p) as pdf:
+                    pdf.savefig(fig_main)
+                messagebox.showinfo("Exported", f"PDF saved to {p}")
+            except Exception as e:
+                messagebox.showerror("Error", f"PDF export failed: {e}")
+
+        # wire buttons
+        generate_btn.config(command=generate_report)
+        export_csv_btn.config(command=export_csv)
+        export_pdf_btn.config(command=export_pdf)
+
+        # --- Bottom: small table preview of last_table_rows ---
+        table_frame = tk.Frame(win, bg="#ffffff", bd=1, relief="sunken")
+        table_frame.pack(fill="x", padx=12, pady=(8,12))
+
+        table_lbl = tk.Label(table_frame, text="Preview (Generate first then export)", bg="#ffffff")
+        table_lbl.pack(anchor="w", padx=8, pady=6)
+
+        preview_tree = ttk.Treeview(table_frame, show="headings", height=6)
+        preview_tree.pack(fill="x", padx=8, pady=(0,8))
+
+        def refresh_preview():
+            preview_tree.delete(*preview_tree.get_children())
+            preview_tree["columns"] = last_table_headers
+            for col in last_table_headers:
+                preview_tree.heading(col, text=col); preview_tree.column(col, width=120)
+            for r in last_table_rows:
+                preview_tree.insert("", "end", values=r)
+
+        # refresh preview whenever generate is called by wrapping generate_report
+        orig_generate = generate_btn.cget("command")
+        def wrapped_generate():
+            generate_report()
+            refresh_preview()
+        generate_btn.config(command=wrapped_generate)
+
+    # end of analytics window
 
     # Sign out
     def signout():
@@ -291,10 +683,8 @@ def manager_dashboard(root, username):
         ("🎟️", "Issued Tickets", "View all issued tickets", view_tickets),
         ("💰", "Donations", "View all donations", view_donations),
         ("📅", "Festival Calendar", "Add/edit festival dates", manage_festival),
-        ("🖨️", "Export Tickets", "Export tickets to CSV", export_tickets),
-        ("🖨️", "Export Bookings", "Export bookings to CSV", export_stage_bookings),
         ("🖨️", "Export Festivals", "Export festival calendar", export_festivals),
-        ("🖨️", "Export Donations", "Export donations", export_donations),
+        ("📊", "Analytics & Reports", "View monthly dashboards", open_analytics_window),
         ("🔒", "Sign Out", "Return to Login", signout),
     ]
 
@@ -306,6 +696,8 @@ def manager_dashboard(root, username):
         c += 1
         if c >= cols:
             c = 0; r += 1
+            
+
 
     # footer sign out
     footer = tk.Frame(root, bg="#f0f8ff")

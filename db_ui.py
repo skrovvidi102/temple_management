@@ -1,5 +1,6 @@
 # db_ui.py
 import tkinter as tk
+from tkinter import ttk
 from tkinter import messagebox
 from temple_db import authenticate_user, get_role, create_tables, add_employee, create_employee_login
 from staff_dashboard import staff_dashboard
@@ -107,6 +108,12 @@ class LoginUI:
             win.destroy()
 
         tk.Button(win, text="Sign Up", command=do_signup, bg="#81c784", width=14).pack(pady=12)
+        
+    # scrollable_frame.py
+
+
+
+
 
 if __name__ == "__main__":
     create_tables()
