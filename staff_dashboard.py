@@ -15,6 +15,8 @@ from pdf_utils import (
     generate_ticket_pdf, generate_donation_receipt, generate_stage_booking_receipt,
     generate_festival_calendar_pdf, get_rate
 )
+from datetime import datetime
+from temple_db import is_stage_available
 
 # ----------------------------
 # Scrollable Frame Component
@@ -23,30 +25,58 @@ class ScrollableFrame(ttk.Frame):
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
 
-        canvas = tk.Canvas(self, bg="#f0f8ff", highlightthickness=0)
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        # Canvas
+        self.canvas = tk.Canvas(self, bg="#f0f8ff", highlightthickness=0)
 
-        self.scrollable_frame = ttk.Frame(canvas)
+        # Scrollbars
+        self.v_scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.h_scrollbar = ttk.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
+
+        # Frame inside canvas
+        self.scrollable_frame = ttk.Frame(self.canvas)
         self.scrollable_frame.bind(
             "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
 
-        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        # Create window inside canvas
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
 
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Configure canvas scroll
+        self.canvas.configure(yscrollcommand=self.v_scrollbar.set, xscrollcommand=self.h_scrollbar.set)
 
-        # Mouse wheel scroll
-        self.scrollable_frame.bind("<Enter>", lambda e: self._bind_mousewheel(canvas))
-        self.scrollable_frame.bind("<Leave>", lambda e: self._unbind_mousewheel(canvas))
+        # Pack everything
+        self.canvas.pack(side="top", fill="both", expand=True)
+        self.v_scrollbar.pack(side="right", fill="y")
+        self.h_scrollbar.pack(side="bottom", fill="x")
 
-    def _bind_mousewheel(self, canvas):
-        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(-1 * (e.delta // 120), "units"))
+        # Mouse wheel scroll bindings
+        self.scrollable_frame.bind("<Enter>", self._bind_mousewheel)
+        self.scrollable_frame.bind("<Leave>", self._unbind_mousewheel)
 
-    def _unbind_mousewheel(self, canvas):
-        canvas.unbind_all("<MouseWheel>")
+        # Click-and-drag scrolling
+        self.canvas.bind("<ButtonPress-1>", self._scroll_start)
+        self.canvas.bind("<B1-Motion>", self._scroll_move)
+
+    # Vertical scroll with mouse wheel, horizontal with Shift + wheel
+    def _bind_mousewheel(self, event=None):
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _unbind_mousewheel(self, event=None):
+        self.canvas.unbind_all("<MouseWheel>")
+
+    def _on_mousewheel(self, event):
+        if event.state & 0x1:  # Shift key is pressed
+            self.canvas.xview_scroll(-1 * (event.delta // 120), "units")
+        else:
+            self.canvas.yview_scroll(-1 * (event.delta // 120), "units")
+
+    # Click-and-drag horizontal & vertical scroll
+    def _scroll_start(self, event):
+        self.canvas.scan_mark(event.x, event.y)
+
+    def _scroll_move(self, event):
+        self.canvas.scan_dragto(event.x, event.y, gain=1)
 
 
 # ----------------------------
@@ -407,6 +437,84 @@ def staff_dashboard(root, username):
         from db_ui import LoginUI
         LoginUI(root)
 
+    #stage slots
+    
+
+    def book_stage_ui():
+        win = tk.Toplevel(root)
+        win.title("Book Stage")
+        win.geometry("520x520")
+        win.configure(bg="#f5f5f5")
+
+        tk.Label(win, text="Select Booking Date (YYYY-MM-DD):", bg="#f5f5f5").pack(pady=4)
+        date_entry = tk.Entry(win); date_entry.pack(fill="x", padx=10)
+
+        tk.Label(win, text="Start Time (HH:MM):", bg="#f5f5f5").pack(pady=4)
+        start_entry = tk.Entry(win); start_entry.pack(fill="x", padx=10)
+
+        tk.Label(win, text="End Time (HH:MM):", bg="#f5f5f5").pack(pady=4)
+        end_entry = tk.Entry(win); end_entry.pack(fill="x", padx=10)
+
+        tk.Label(win, text="Select Stage:", bg="#f5f5f5").pack(pady=4)
+        stages = get_all_stages()
+        stage_cb = ttk.Combobox(win, values=[s[1] for s in stages])
+        stage_cb.pack(fill="x", padx=10)
+
+        tk.Label(win, text="Event Name:", bg="#f5f5f5").pack(pady=4)
+        event_entry = tk.Entry(win); event_entry.pack(fill="x", padx=10)
+
+        status_label = tk.Label(win, text="", bg="#f5f5f5", fg="red")
+        status_label.pack(pady=4)
+
+        def check_availability(*args):
+            selected_stage = stage_cb.get()
+            selected_date = date_entry.get()
+            start = start_entry.get()
+            end = end_entry.get()
+            if not (selected_stage and selected_date and start and end):
+                status_label.config(text="")
+                return
+            stage_obj = next((s for s in stages if s[1] == selected_stage), None)
+            if stage_obj:
+                available = is_stage_available(stage_obj[0], selected_date, start, end)
+                status_label.config(
+                    text=f"{selected_stage} is {'AVAILABLE' if available else 'OCCUPIED'}"
+                )
+
+        stage_cb.bind("<<ComboboxSelected>>", check_availability)
+        date_entry.bind("<KeyRelease>", check_availability)
+        start_entry.bind("<KeyRelease>", check_availability)
+        end_entry.bind("<KeyRelease>", check_availability)
+
+        def submit():
+            selected_stage = stage_cb.get()
+            stage_obj = next((s for s in stages if s[1] == selected_stage), None)
+            if not stage_obj:
+                messagebox.showerror("Error", "Select a stage")
+                return
+
+            selected_date = date_entry.get()
+            start = start_entry.get()
+            end = end_entry.get()
+            event_name = event_entry.get().strip()
+
+            if not is_stage_available(stage_obj[0], selected_date, start, end):
+                messagebox.showerror("Error", "Stage is occupied for this slot")
+                return
+
+            try:
+                book_stage(stage_obj[0], staff_id, event_name, selected_date, start, end, status='confirmed')
+            except Exception as e:
+                messagebox.showerror("Error", str(e))
+                return
+
+            messagebox.showinfo("Success", f"Stage '{selected_stage}' booked!")
+            win.destroy()
+
+        tk.Button(win, text="Book Stage", command=submit, bg="#81c784").pack(pady=12)
+        tk.Button(win, text="Back", command=win.destroy, bg="#e0e0e0").pack(side="bottom", pady=8)
+    
+    
     # ======================================================
     #                    DASHBOARD CARDS
     # ======================================================
@@ -418,6 +526,7 @@ def staff_dashboard(root, username):
         ("📋", "My Tickets", "Tickets issued by you", view_tickets),
         ("🧾", "Last Receipt", "Open most recent receipt", view_last_receipt),
         ("📅", "Festival Calendar", "View & print", view_festival),
+        ("📊", "Stage Dashboard", "View availability", book_stage_ui),
         ("🔒", "Sign Out", "Return to login", signout),
     ]
 

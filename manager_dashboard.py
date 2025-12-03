@@ -5,7 +5,7 @@ from temple_db import (
     add_employee, create_employee_login, get_all_employees,
     delete_employee_by_id, get_stage_bookings, get_all_donations,
     get_issued_tickets_by_employee, get_all_stages, add_stage, update_stage, delete_stage,
-    get_connection, get_all_festivals, add_festival, update_festival, delete_festival,get_festivals_by_month
+    get_connection, get_all_festivals, add_festival, update_festival, delete_festival,get_festivals_by_month,get_stage_availability_for_date
 )
 from pdf_utils import generate_ticket_pdf, generate_donation_receipt, generate_stage_booking_receipt, generate_festival_calendar_pdf, get_rate
 from datetime import date
@@ -18,41 +18,65 @@ from tkinter import filedialog
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.dates as mdates
 
+#scroll framework
 class ScrollableFrame(ttk.Frame):
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
 
-        canvas = tk.Canvas(self, bg="#f0f8ff", highlightthickness=0)
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        # Canvas
+        self.canvas = tk.Canvas(self, bg="#f0f8ff", highlightthickness=0)
 
-        self.scrollable_frame = ttk.Frame(canvas)
+        # Scrollbars
+        self.v_scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.h_scrollbar = ttk.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
+
+        # Frame inside canvas
+        self.scrollable_frame = ttk.Frame(self.canvas)
         self.scrollable_frame.bind(
             "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
 
-        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        # Create window inside canvas
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
 
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Configure canvas scroll
+        self.canvas.configure(yscrollcommand=self.v_scrollbar.set, xscrollcommand=self.h_scrollbar.set)
 
-        # Mouse wheel scrolling
-        self.scrollable_frame.bind("<Enter>", lambda e: self._bind_mousewheel(canvas))
-        self.scrollable_frame.bind("<Leave>", lambda e: self._unbind_mousewheel(canvas))
+        # Pack everything
+        self.canvas.pack(side="top", fill="both", expand=True)
+        self.v_scrollbar.pack(side="right", fill="y")
+        self.h_scrollbar.pack(side="bottom", fill="x")
 
-    def _bind_mousewheel(self, canvas):
-        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(-1*(e.delta//120), "units"))
+        # Mouse wheel scroll bindings
+        self.scrollable_frame.bind("<Enter>", self._bind_mousewheel)
+        self.scrollable_frame.bind("<Leave>", self._unbind_mousewheel)
 
-    def _unbind_mousewheel(self, canvas):
-        canvas.unbind_all("<MouseWheel>")
+        # Click-and-drag scrolling
+        self.canvas.bind("<ButtonPress-1>", self._scroll_start)
+        self.canvas.bind("<B1-Motion>", self._scroll_move)
+
+    # Vertical scroll with mouse wheel, horizontal with Shift + wheel
+    def _bind_mousewheel(self, event=None):
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _unbind_mousewheel(self, event=None):
+        self.canvas.unbind_all("<MouseWheel>")
+
+    def _on_mousewheel(self, event):
+        if event.state & 0x1:  # Shift key is pressed
+            self.canvas.xview_scroll(-1 * (event.delta // 120), "units")
+        else:
+            self.canvas.yview_scroll(-1 * (event.delta // 120), "units")
+
+    # Click-and-drag horizontal & vertical scroll
+    def _scroll_start(self, event):
+        self.canvas.scan_mark(event.x, event.y)
+
+    def _scroll_move(self, event):
+        self.canvas.scan_dragto(event.x, event.y, gain=1)
 
 # manager_dashboard.py
-# manager_dashboard.py
-
-
-
-
 
 def make_card(parent, icon, title, subtitle, command, bg="#ffffff"):
     card = tk.Frame(parent, bg=bg, bd=1, relief="raised", padx=12, pady=12)
@@ -204,6 +228,35 @@ def manager_dashboard(root, username):
         tree.pack(fill="both", expand=True, padx=8, pady=6)
         rows = get_stage_bookings()
         for row in rows: tree.insert("", "end", values=row)
+        tk.Button(win, text="Back", command=win.destroy, bg="#e0e0e0").pack(side="bottom", pady=8)
+        
+    def manage_stage_bookings():
+        win = tk.Toplevel(root)
+        win.title("Stage Availability & Bookings")
+        win.geometry("900x500")
+        win.configure(bg="#f5f5f5")
+
+        tk.Label(win, text="Select Date (YYYY-MM-DD):", bg="#f5f5f5").pack(pady=6)
+        date_entry = tk.Entry(win)
+        date_entry.pack(fill="x", padx=12)
+
+        tree = ttk.Treeview(win, columns=("StageID","StageName","Location","Capacity","Availability"), show="headings")
+        for col in ("StageID","StageName","Location","Capacity","Availability"):
+            tree.heading(col, text=col)
+            tree.column(col, width=140)
+        tree.pack(fill="both", expand=True, padx=12, pady=8)
+
+        def load_availability():
+            selected_date = date_entry.get().strip()
+            if not selected_date:
+                messagebox.showerror("Error", "Enter a date")
+                return
+            for r in tree.get_children(): tree.delete(r)
+            stages = get_stage_availability_for_date(selected_date)
+            for s in stages: tree.insert("", "end", values=s)
+
+        tk.Button(win, text="Check Availability", command=load_availability, bg="#4fc3f7").pack(pady=6)
+
         tk.Button(win, text="Back", command=win.destroy, bg="#e0e0e0").pack(side="bottom", pady=8)
 
     # View Issued Tickets
@@ -667,6 +720,12 @@ def manager_dashboard(root, username):
         generate_btn.config(command=wrapped_generate)
 
     # end of analytics window
+    def update_temple_name_ui():
+        new_name = simpledialog.askstring("Update Temple Name", "Enter new temple name:")
+        if new_name:
+            from temple_db import update_temple_name
+            update_temple_name(new_name)
+            messagebox.showinfo("Success", f"Temple name updated to '{new_name}'!")
 
     # Sign out
     def signout():
@@ -680,11 +739,13 @@ def manager_dashboard(root, username):
         ("👥", "Manage Employees", "Add/delete employee accounts", manage_employees),
         ("🏟️", "Manage Stages", "Add/update stages & capacity", manage_stages),
         ("📅", "Stage Bookings", "View all stage bookings", view_stage_bookings),
+        ("🗓️", "Stage Availability", "Check stage status by date", manage_stage_bookings),
         ("🎟️", "Issued Tickets", "View all issued tickets", view_tickets),
         ("💰", "Donations", "View all donations", view_donations),
         ("📅", "Festival Calendar", "Add/edit festival dates", manage_festival),
         ("🖨️", "Export Festivals", "Export festival calendar", export_festivals),
         ("📊", "Analytics & Reports", "View monthly dashboards", open_analytics_window),
+        ("🏛️", "Temple Name", "Update temple name", update_temple_name_ui),
         ("🔒", "Sign Out", "Return to Login", signout),
     ]
 

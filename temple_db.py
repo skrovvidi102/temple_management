@@ -117,7 +117,11 @@ def create_tables(db_file=DB_FILENAME):
         FOREIGN KEY (DonorID) REFERENCES Donor(DonorID)
     );
     
-    
+    CREATE TABLE IF NOT EXISTS TempleInfo (
+        TempleID INTEGER PRIMARY KEY AUTOINCREMENT,
+        TempleName TEXT NOT NULL
+    );
+    INSERT INTO TempleInfo (TempleName) VALUES ('Default Temple Name');
     CREATE TABLE IF NOT EXISTS FestivalCalendar (
         FestivalID INTEGER PRIMARY KEY AUTOINCREMENT,
         FestivalName TEXT NOT NULL,
@@ -356,6 +360,57 @@ def book_stage(stage_id, employee_id, event_name, booking_date, start_time, end_
                 (stage_id, employee_id, event_name, booking_date, start_time, end_time, status))
     conn.commit()
     conn.close()
+    #stage booking slots
+def is_stage_available(stage_id, booking_date, start_time, end_time):
+    """
+    Returns True if the stage is free for the requested date/time, False otherwise
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT 1
+        FROM StageBookings
+        WHERE StageID=? AND BookingDate=? AND Status IN ('confirmed','approved')
+          AND NOT (EndTime <= ? OR StartTime >= ?)
+    """, (stage_id, booking_date, start_time, end_time))
+    conflict = cur.fetchone()
+    conn.close()
+    return conflict is None
+#stage for manager
+def get_stage_availability_for_date(booking_date):
+    """
+    Returns a list of tuples: (StageID, StageName, Location, Capacity, AvailabilityStatus)
+    Updates AvailabilityStatus to 'occupied' if booked on the given date, otherwise 'available'.
+    """
+    stages = get_all_stages()
+    conn = get_connection()
+    cur = conn.cursor()
+    for i, s in enumerate(stages):
+        stage_id = s[0]
+        cur.execute("""
+            SELECT 1 FROM StageBookings
+            WHERE StageID=? AND BookingDate=? AND Status IN ('confirmed','approved')
+        """, (stage_id, booking_date))
+        conflict = cur.fetchone()
+        availability = 'occupied' if conflict else 'available'
+        stages[i] = (s[0], s[1], s[2], s[3], availability)
+    conn.close()
+    return stages
+# temple names
+def get_temple_name():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT TempleName FROM TempleInfo WHERE TempleID = 1")
+    row = cur.fetchone()
+    conn.close()
+    return row[0] if row else "Temple Management System"
+
+def update_temple_name(new_name):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE TempleInfo SET TempleName = ? WHERE TempleID = 1", (new_name,))
+    conn.commit()
+    conn.close()
 
 # ---------------------------
 # Donations
@@ -445,6 +500,9 @@ def get_festivals_by_month(year, month):
     rows = cur.fetchall()
     conn.close()
     return rows
+
+
+
 
 # ---------------------------
 # Demo helper (optional)
