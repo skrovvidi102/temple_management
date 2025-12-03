@@ -1,14 +1,14 @@
-import sqlite3 # for database
-import os  #for system access
-import hashlib  #password
-import binascii  #password
+import sqlite3 
+import os  
+import hashlib  
+import binascii  
 from datetime import date  
 
 DB_FILENAME = "temple_management.db"
 
-# ---------------------------
+
 # Password hashing
-# ---------------------------
+
 def hash_password(password: str, salt: bytes = None, iterations: int = 100_000):
     if salt is None:
         salt = os.urandom(16)
@@ -21,17 +21,17 @@ def verify_password(stored_salt_hex: str, stored_hash_hex: str, provided_passwor
     verify_hash = hashlib.pbkdf2_hmac("sha256", provided_password.encode("utf-8"), salt, iterations)
     return binascii.hexlify(verify_hash).decode() == stored_hash_hex
 
-# ---------------------------
+
 # Connection
-# ---------------------------
+
 def get_connection(db_file=DB_FILENAME):
     conn = sqlite3.connect(db_file)
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
-# ---------------------------
+
 # Create tables (single place)
-# ---------------------------
+
 def create_tables(db_file=DB_FILENAME):
     conn = get_connection(db_file)
     cur = conn.cursor()
@@ -135,9 +135,9 @@ def create_tables(db_file=DB_FILENAME):
     conn.close()
     print(f"Database and tables created (or verified) in {db_file}")
 
-# ---------------------------
+
 # Employee functions
-# ---------------------------
+
 def add_employee(name, role=None, contact=None, email=None):
     conn = get_connection()
     cur = conn.cursor()
@@ -200,9 +200,9 @@ def delete_employee_by_id(employee_id):
     conn.commit()
     conn.close()
 
-# ---------------------------
+
 # Worship functions
-# ---------------------------
+
 def add_worship_type(name, rate):
     conn = get_connection()
     cur = conn.cursor()
@@ -225,9 +225,9 @@ def get_all_worship_types():
     conn.close()
     return rows
 
-# ---------------------------
+
 # Devotee & Tickets
-# ---------------------------
+
 def add_devotee(name, contact=None):
     conn = get_connection()
     cur = conn.cursor()
@@ -263,9 +263,9 @@ def get_last_ticket_by_employee(employee_id):
     conn.close()
     return row
 
-# ---------------------------
+
 # Stage (CRUD)
-# ---------------------------
+
 def add_stage(stage_name, location=None, capacity=0, availability_status='available'):
     conn = get_connection()
     cur = conn.cursor()
@@ -360,7 +360,9 @@ def book_stage(stage_id, employee_id, event_name, booking_date, start_time, end_
                 (stage_id, employee_id, event_name, booking_date, start_time, end_time, status))
     conn.commit()
     conn.close()
+    
     #stage booking slots
+    
 def is_stage_available(stage_id, booking_date, start_time, end_time):
     """
     Returns True if the stage is free for the requested date/time, False otherwise
@@ -376,7 +378,9 @@ def is_stage_available(stage_id, booking_date, start_time, end_time):
     conflict = cur.fetchone()
     conn.close()
     return conflict is None
+
 #stage for manager
+
 def get_stage_availability_for_date(booking_date):
     """
     Returns a list of tuples: (StageID, StageName, Location, Capacity, AvailabilityStatus)
@@ -396,7 +400,9 @@ def get_stage_availability_for_date(booking_date):
         stages[i] = (s[0], s[1], s[2], s[3], availability)
     conn.close()
     return stages
+
 # temple names
+
 def get_temple_name():
     conn = get_connection()
     cur = conn.cursor()
@@ -412,9 +418,9 @@ def update_temple_name(new_name):
     conn.commit()
     conn.close()
 
-# ---------------------------
+
 # Donations
-# ---------------------------
+
 def add_donor(name):
     conn = get_connection()
     cur = conn.cursor()
@@ -445,9 +451,9 @@ def get_all_donations():
     conn.close()
     return rows
 
-# ---------------------------
+
 # Festival Calendar
-# ---------------------------
+
 def add_festival(name, date_str, notes=None):
     conn = get_connection()
     cur = conn.cursor()
@@ -504,9 +510,9 @@ def get_festivals_by_month(year, month):
 
 
 
-# ---------------------------
+
 # Demo helper (optional)
-# ---------------------------
+
 def demo_seed():
     # create tables and add a manager account if none exists
     create_tables()

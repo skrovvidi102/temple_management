@@ -4,7 +4,7 @@ from tkinter import ttk
 from tkinter import messagebox, simpledialog
 from temple_db import (
     authenticate_user, get_role, create_tables, add_employee, create_employee_login,
-    get_temple_name, update_temple_name  # <-- added temple DB functions
+    get_temple_name, update_temple_name  
 )
 from staff_dashboard import staff_dashboard
 from manager_dashboard import manager_dashboard
@@ -17,7 +17,7 @@ class LoginUI:
 
         # fullscreen / large window
         try:
-            root.state('zoomed')  # windows / some platforms
+            root.state('zoomed')  
         except:
             screen_w = root.winfo_screenwidth()
             screen_h = root.winfo_screenheight()
@@ -31,7 +31,7 @@ class LoginUI:
 
         # Frame to hold logo and title, centered
         title_frame = tk.Frame(header, bg="#f0f8ff")
-        title_frame.pack(expand=True)  # center horizontally
+        title_frame.pack(expand=True) 
 
         # Load and resize the temple logo
         img = Image.open("/Users/sakethkrovvidi/Desktop/project code/Neutral Elegant Minimalist Jewelry Logo.png")  
@@ -54,7 +54,7 @@ class LoginUI:
                                            command=self.change_temple_name, bg="#ffb74d")
         # initially hidden; shown after manager login
         self.update_temple_btn.pack(side="top", pady=(0,4))
-        self.update_temple_btn.pack_forget()  # hide initially
+        self.update_temple_btn.pack_forget()  
 
         # Exit button
         exit_btn = tk.Button(header, text="X", bg="#ef5350", fg="white", font=("Arial", 10, "bold"),

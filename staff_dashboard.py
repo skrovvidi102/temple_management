@@ -18,9 +18,9 @@ from pdf_utils import (
 from datetime import datetime
 from temple_db import is_stage_available
 
-# ----------------------------
+
 # Scrollable Frame Component
-# ----------------------------
+
 class ScrollableFrame(ttk.Frame):
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
@@ -79,9 +79,9 @@ class ScrollableFrame(ttk.Frame):
         self.canvas.scan_dragto(event.x, event.y, gain=1)
 
 
-# ----------------------------
+
 # Card Component
-# ----------------------------
+
 def make_card(parent, icon, title, subtitle, command, bg="#ffffff"):
     card = tk.Frame(parent, bg=bg, bd=1, relief="raised", padx=12, pady=12)
     card.grid_propagate(False)
@@ -95,9 +95,9 @@ def make_card(parent, icon, title, subtitle, command, bg="#ffffff"):
     return card
 
 
-# ----------------------------
+
 # Staff Dashboard
-# ----------------------------
+
 def staff_dashboard(root, username):
 
     # Clear window
@@ -140,9 +140,8 @@ def staff_dashboard(root, username):
     for c in range(cols):
         grid_frame.columnconfigure(c, weight=1, uniform="c")
 
-    # ======================================================
-    #                STAFF ACTION FUNCTIONS
-    # ======================================================
+    
+    #STAFF ACTION FUNCTIONS
 
     # ---- Issue Ticket ----
     def issue_ticket_ui():
@@ -515,9 +514,9 @@ def staff_dashboard(root, username):
         tk.Button(win, text="Back", command=win.destroy, bg="#e0e0e0").pack(side="bottom", pady=8)
     
     
-    # ======================================================
-    #                    DASHBOARD CARDS
-    # ======================================================
+
+    #DASHBOARD CARDS
+
     cards = [
         ("🎟️", "Issue Tickets", "Create & print tickets", issue_ticket_ui),
         ("🏟️", "Book Stage", "Reserve stages & print receipt", book_stage_ui),

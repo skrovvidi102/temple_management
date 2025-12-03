@@ -417,8 +417,7 @@ def manager_dashboard(root, username):
         chart_frame = tk.Frame(win, bg="#f5f5f5")
         chart_frame.pack(fill="both", expand=True, padx=12, pady=8)
 
-        # Use matplotlib FigureCanvas if user has it; otherwise we'll rely on plt.show() as fallback.
-        # We'll draw figures and embed them with TkAgg canvas if available.
+      
         try:
             from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
             has_tkagg = True
@@ -435,7 +434,7 @@ def manager_dashboard(root, username):
             canvas_widget = canvas.get_tk_widget()
             canvas_widget.pack(fill="both", expand=True)
         else:
-            # simple placeholder frame for non-TkAgg env; charts will pop as windows when generated
+            
             placeholder = tk.Label(chart_frame, text="Charts will open in external windows (tkagg not available).", bg="#f5f5f5")
             placeholder.pack(fill="both", expand=True)
 
@@ -444,7 +443,7 @@ def manager_dashboard(root, username):
         last_table_headers = []
 
         def compute_month_key(date_str):
-            # expects YYYY-MM-DD, returns YYYY-MM
+            
             try:
                 return datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m")
             except:
@@ -476,7 +475,7 @@ def manager_dashboard(root, username):
             Always include all 12 months for line graph.
             """
             if selected_month != "All":
-                # Use existing filtering for a single month
+                
                 items = sorted(agg.items())
                 labels = []
                 vals = []
@@ -514,8 +513,8 @@ def manager_dashboard(root, username):
 
             if metric == "Monthly Budget":
                 # Treat donations as budget/income
-                donations = get_all_donations()  # (EmployeeName, DonorName, DonationDate, DonationType, Amount, DonationsID)
-                # aggregate by date index 2, value index 4
+                donations = get_all_donations()  
+              
                 agg = aggregate_by_month_year(donations, 2, 4)
                 labels, vals = build_time_series_from_agg(agg, sel_year, sel_month)
                 last_table_headers = ["Month", "DonationsTotal"]
@@ -535,12 +534,11 @@ def manager_dashboard(root, username):
                 ax_line.set_xticklabels(labels, rotation=45, ha="right")
 
             elif metric == "Tickets":
-                # Use issued tickets -> date index 2, amount index 4
-                # We'll pull tickets for all employees
+                
                 agg = defaultdict(float)
                 for emp in get_all_employees():
                     emp_id = emp[0]
-                    tickets = get_issued_tickets_by_employee(emp_id)  # expected (tid, worship, date, num, amt)
+                    tickets = get_issued_tickets_by_employee(emp_id)  
                     for t in tickets:
                         try:
                             dstr = t[2]
@@ -567,8 +565,8 @@ def manager_dashboard(root, username):
 
             # Get all employees
             elif metric == "Staff Activity":
-                all_emps = get_all_employees()  # [(id, name, ...)]
-                staff_counts = {emp[1]: 0 for emp in all_emps}  # initialize 0 for everyone
+                all_emps = get_all_employees()  
+                staff_counts = {emp[1]: 0 for emp in all_emps}  
 
                 for emp in all_emps:
                     emp_id, emp_name = emp[0], emp[1]
@@ -587,7 +585,7 @@ def manager_dashboard(root, username):
                             continue
 
                 # Now staff_counts has all staff, 0 if no activity
-                items = sorted(staff_counts.items(), key=lambda x: x[0])  # sort alphabetically
+                items = sorted(staff_counts.items(), key=lambda x: x[0])  
                 last_table_headers = ["Staff", "TicketsIssued"]
                 last_table_rows = [(k, str(v)) for k, v in items]
 
@@ -622,7 +620,7 @@ def manager_dashboard(root, username):
             elif metric == "Bookings":
                 # Monthly count of stage bookings
                 bookings = get_stage_bookings()
-                # bookings expected: (bookingid, stageid, empid, eventname, bookingdate, start, end, status)
+                
                 agg = defaultdict(int)
                 for b in bookings:
                     try:
@@ -672,8 +670,7 @@ def manager_dashboard(root, username):
             messagebox.showinfo("Exported", f"CSV saved to {p}")
 
         def export_pdf():
-            # Save the two current axes to a single PDF (if charts exist)
-            # If nothing generated yet, force generation first
+            
             if not any([len(ax_bar.lines) or len(ax_bar.patches) or len(ax_line.lines) or len(ax_line.patches)]):
                 # attempt generate
                 generate_report()
