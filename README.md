@@ -79,8 +79,7 @@ How to Run the Project
 	1.	Install Python 3.x
 	2.	Install required packages:
 pip install matplotlib tkcalendar fpdf reportlab
-	3.	Run the db_ui.py script:
-python main.py
+	3.	Run the db_ui.py script
 	4.	Ensure the following files are in the same project directory:
 	•	db_ui.py
 	•	temple_db.py
