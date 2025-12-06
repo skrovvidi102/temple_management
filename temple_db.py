@@ -511,7 +511,7 @@ def get_festivals_by_month(year, month):
 
 
 
-# Demo helper (optional)
+
 
 def demo_seed():
     # create tables and add a manager account if none exists

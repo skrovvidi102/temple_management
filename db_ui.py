@@ -98,7 +98,7 @@ class LoginUI:
     def exit_app(self):
         if messagebox.askyesno("Exit", "Are you sure you want to exit?"):
             self.root.destroy()
-
+#login design
     def login_action(self):
         username = self.username_entry.get().strip()
         password = self.password_entry.get().strip()
@@ -132,7 +132,7 @@ class LoginUI:
 
         tk.Label(form, text="Name:", bg="#f5f5f5").grid(row=0, column=0, sticky="w"); name = tk.Entry(form); name.grid(row=0,column=1,sticky="ew", padx=8, pady=6)
         tk.Label(form, text="Email:", bg="#f5f5f5").grid(row=1, column=0, sticky="w"); email = tk.Entry(form); email.grid(row=1,column=1,sticky="ew", padx=8, pady=6)
-        tk.Label(form, text="Role (Staff/Manager):", bg="#f5f5f5").grid(row=2, column=0, sticky="w"); role = tk.Entry(form); role.grid(row=2,column=1,sticky="ew", padx=8, pady=6)
+        tk.Label(form, text="Role (Staff/manager):", bg="#f5f5f5").grid(row=2, column=0, sticky="w"); role = tk.Entry(form); role.grid(row=2,column=1,sticky="ew", padx=8, pady=6)
         tk.Label(form, text="Username:", bg="#f5f5f5").grid(row=3, column=0, sticky="w"); username = tk.Entry(form); username.grid(row=3,column=1,sticky="ew", padx=8, pady=6)
         tk.Label(form, text="Password:", bg="#f5f5f5").grid(row=4, column=0, sticky="w"); password = tk.Entry(form, show="*"); password.grid(row=4,column=1,sticky="ew", padx=8, pady=6)
 
