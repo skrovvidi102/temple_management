@@ -5,7 +5,8 @@ from temple_db import (
     add_employee, create_employee_login, get_all_employees,
     delete_employee_by_id, get_stage_bookings, get_all_donations,
     get_issued_tickets_by_employee, get_all_stages, add_stage, update_stage, delete_stage,
-    get_connection, get_all_festivals, add_festival, update_festival, delete_festival,get_festivals_by_month,get_stage_availability_for_date
+    get_connection, get_all_festivals, add_festival, update_festival, delete_festival,
+    get_festivals_by_month,get_stage_availability_for_date, update_stage_booking,delete_stage_booking
 )
 from pdf_utils import generate_ticket_pdf, generate_donation_receipt, generate_stage_booking_receipt, generate_festival_calendar_pdf, get_rate
 from datetime import date
@@ -137,6 +138,20 @@ def manager_dashboard(root, username):
         refresh()
         tk.Label(win, text="Name:", bg="#f5f5f5").pack(); name = tk.Entry(win); name.pack(fill="x", padx=10)
         tk.Label(win, text="Rate:", bg="#f5f5f5").pack(); rate = tk.Entry(win); rate.pack(fill="x", padx=10)
+        def on_row_select(event=None):
+            sel = tree.selection()
+            if not sel:
+                return
+            row = tree.item(sel[0])["values"]  # (ID, Name, Rate)
+
+            name.delete(0, tk.END)
+            name.insert(0, row[1])
+
+            rate.delete(0, tk.END)
+            rate.insert(0, row[2])
+
+        tree.bind("<<TreeviewSelect>>", on_row_select)
+
         def add_new():
             n = name.get().strip()
             try: r = float(rate.get() or 0)
@@ -202,6 +217,29 @@ def manager_dashboard(root, username):
         tk.Label(form, text="Location:", bg="#f5f5f5").grid(row=1,column=0,sticky="w"); sloc = tk.Entry(form); sloc.grid(row=1,column=1,padx=6,pady=2)
         tk.Label(form, text="Capacity:", bg="#f5f5f5").grid(row=2,column=0,sticky="w"); scap = tk.Entry(form); scap.grid(row=2,column=1,padx=6,pady=2)
         tk.Label(form, text="Availability:", bg="#f5f5f5").grid(row=3,column=0,sticky="w"); savail = tk.Entry(form); savail.grid(row=3,column=1,padx=6,pady=2)
+        
+        def on_stage_select(event=None):
+            sel = tree.selection()
+            if not sel:
+                return
+            row = tree.item(sel[0])["values"]  
+            # (ID, StageName, Location, Capacity, Availability)
+
+            sname.delete(0, tk.END)
+            sname.insert(0, row[1])
+
+            sloc.delete(0, tk.END)
+            sloc.insert(0, row[2])
+
+            scap.delete(0, tk.END)
+            scap.insert(0, row[3])
+
+            savail.delete(0, tk.END)
+            savail.insert(0, row[4])
+
+        tree.bind("<<TreeviewSelect>>", on_stage_select)
+
+        
         def add_new():
             add_stage(sname.get().strip() or "Stage", sloc.get().strip(), int(scap.get() or 0), savail.get().strip() or "available"); refresh(); messagebox.showinfo("Success","Stage added.")
         def update_selected():
@@ -221,14 +259,153 @@ def manager_dashboard(root, username):
         tk.Button(win, text="Back", command=win.destroy, bg="#e0e0e0").pack(side="bottom", pady=8)
 
     # View Stage Bookings
+    # View & Manage Stage Bookings
     def view_stage_bookings():
-        win = tk.Toplevel(root); win.title("Stage Bookings"); win.geometry("820x480"); win.configure(bg="#fafafa")
-        tree = ttk.Treeview(win, columns=("BookingID","StageID","EmployeeID","Event","Date","Start","End","Status"), show="headings")
-        for col in ("BookingID","StageID","EmployeeID","Event","Date","Start","End","Status"): tree.heading(col, text=col); tree.column(col,width=100)
+        win = tk.Toplevel(root)
+        win.title("Stage Bookings")
+        win.geometry("900x550")
+        win.configure(bg="#fafafa")
+
+        # Treeview
+        cols = ("BookingID", "StageID", "EmployeeID", "Event", "Date", "Start", "End", "Status")
+        tree = ttk.Treeview(win, columns=cols, show="headings")
+        for col in cols:
+            tree.heading(col, text=col)
+            tree.column(col, width=110)
         tree.pack(fill="both", expand=True, padx=8, pady=6)
-        rows = get_stage_bookings()
-        for row in rows: tree.insert("", "end", values=row)
-        tk.Button(win, text="Back", command=win.destroy, bg="#e0e0e0").pack(side="bottom", pady=8)
+
+        def refresh_tree():
+            tree.delete(*tree.get_children())
+            rows = get_stage_bookings()
+            for row in rows:
+                tree.insert("", "end", values=row)
+
+        refresh_tree()
+
+        # --- Edit Form ---
+        form = tk.Frame(win, bg="#fafafa")
+        form.pack(fill="x", padx=10, pady=10)
+
+        tk.Label(form, text="Event Name:", bg="#fafafa").grid(row=0, column=0, sticky="w", padx=4, pady=4)
+        event_entry = tk.Entry(form)
+        event_entry.grid(row=0, column=1, padx=4, pady=4, sticky="ew")
+
+        tk.Label(form, text="Date (YYYY-MM-DD):", bg="#fafafa").grid(row=1, column=0, sticky="w", padx=4, pady=4)
+        date_entry = tk.Entry(form)
+        date_entry.grid(row=1, column=1, padx=4, pady=4, sticky="ew")
+
+        tk.Label(form, text="Start Time (HH:MM):", bg="#fafafa").grid(row=2, column=0, sticky="w", padx=4, pady=4)
+        start_entry = tk.Entry(form)
+        start_entry.grid(row=2, column=1, padx=4, pady=4, sticky="ew")
+
+        tk.Label(form, text="End Time (HH:MM):", bg="#fafafa").grid(row=3, column=0, sticky="w", padx=4, pady=4)
+        end_entry = tk.Entry(form)
+        end_entry.grid(row=3, column=1, padx=4, pady=4, sticky="ew")
+
+        tk.Label(form, text="Status:", bg="#fafafa").grid(row=4, column=0, sticky="w", padx=4, pady=4)
+        status_var = tk.StringVar(value="confirmed")
+        status_cb = ttk.Combobox(
+            form, textvariable=status_var,
+            values=["confirmed", "cancelled", "pending"],
+            state="readonly", width=15
+        )
+        status_cb.grid(row=4, column=1, padx=4, pady=4, sticky="w")
+
+        form.columnconfigure(1, weight=1)
+
+        # --- Fill form when row selected ---
+        def on_row_select(event=None):
+            sel = tree.selection()
+            if not sel:
+                return
+            values = tree.item(sel[0])["values"]
+
+            # (BookingID, StageID, EmployeeID, Event, Date, Start, End, Status)
+            event_entry.delete(0, tk.END)
+            event_entry.insert(0, values[3])
+
+            date_entry.delete(0, tk.END)
+            date_entry.insert(0, values[4])
+
+            start_entry.delete(0, tk.END)
+            start_entry.insert(0, values[5])
+
+            end_entry.delete(0, tk.END)
+            end_entry.insert(0, values[6])
+
+            status_var.set(values[7])
+
+        tree.bind("<<TreeviewSelect>>", on_row_select)
+
+        # --- Button Row ---
+        btn_frame = tk.Frame(win, bg="#fafafa")
+        btn_frame.pack(fill="x", padx=10, pady=10)
+
+        def update_booking():
+            sel = tree.selection()
+            if not sel:
+                messagebox.showerror("Error", "Select a booking to update.")
+                return
+
+            values = tree.item(sel[0])["values"]
+            booking_id = values[0]
+
+            ev = event_entry.get().strip()
+            dt = date_entry.get().strip()
+            st = start_entry.get().strip()
+            et = end_entry.get().strip()
+            st_status = status_var.get()
+
+            if not (ev and dt and st and et):
+                messagebox.showerror("Error", "Event, Date, Start, End Time are required.")
+                return
+
+            # Basic validation
+            try:
+                datetime.strptime(dt, "%Y-%m-%d")
+            except ValueError:
+                messagebox.showerror("Error", "Invalid date format. Use YYYY-MM-DD.")
+                return
+
+            # Update the booking
+            update_stage_booking(booking_id, ev, dt, st, et, st_status)
+            refresh_tree()
+            messagebox.showinfo("Success", "Stage booking updated successfully.")
+
+        def delete_booking():
+            sel = tree.selection()
+            if not sel:
+                messagebox.showerror("Error", "Select a booking to delete.")
+                return
+
+            values = tree.item(sel[0])["values"]
+            booking_id = values[0]
+            event_name = values[3]
+
+            if not messagebox.askyesno("Delete Booking", f"Delete booking for '{event_name}'?"):
+                return
+
+            delete_stage_booking(booking_id)
+            refresh_tree()
+
+            # Clear form after delete
+            event_entry.delete(0, tk.END)
+            date_entry.delete(0, tk.END)
+            start_entry.delete(0, tk.END)
+            end_entry.delete(0, tk.END)
+            status_var.set("confirmed")
+
+            messagebox.showinfo("Deleted", "Stage booking deleted successfully.")
+
+        tk.Button(btn_frame, text="Update Booking", bg="#ffd54f", command=update_booking)\
+            .pack(side="left", padx=6)
+
+        tk.Button(btn_frame, text="Delete Booking", bg="#ef5350", fg="white", command=delete_booking)\
+            .pack(side="left", padx=6)
+
+        tk.Button(btn_frame, text="Back", bg="#e0e0e0", command=win.destroy)\
+            .pack(side="right", padx=6)
+
         
     def manage_stage_bookings():
         win = tk.Toplevel(root)

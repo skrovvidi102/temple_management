@@ -401,6 +401,32 @@ def get_stage_availability_for_date(booking_date):
     conn.close()
     return stages
 
+def update_stage_booking(booking_id, event_name, booking_date, start_time, end_time, status):
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE StageBookings
+        SET EventName = ?,
+            BookingDate = ?,
+            StartTime = ?,
+            EndTime = ?,
+            Status = ?
+        WHERE stageBookingID = ?
+    """, (event_name, booking_date, start_time, end_time, status, booking_id))
+    conn.commit()
+    conn.close()
+
+
+def delete_stage_booking(booking_id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM StageBookings WHERE stageBookingID = ?", (booking_id,))
+    conn.commit()
+    conn.close()
+
+
 # temple names
 
 def get_temple_name():
